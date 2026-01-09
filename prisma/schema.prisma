@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+enum QuoteStatus {
+  OPEN
+  ASSIGNED
+  COMPLETED
+  CLOSED
+}
+
+model User {
+  id           String           @id @default(cuid())
+  email        String           @unique
+  passwordHash String
+  name         String
+  role         UserRole         @default(CUSTOMER)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  provider     ProviderProfile?
+  reviews      Review[]
+  quotes       QuoteRequest[]   @relation("CustomerQuotes")
+  messages     Message[]
+}
+
+model ProviderProfile {
+  id             String             @id @default(cuid())
+  userId         String             @unique
+  businessName   String
+  description    String
+  phone          String
+  contactEmail   String
+  hours          String
+  insurance      String?
+  licenseNumber  String?
+  verified       Boolean            @default(false)
+  rating         Float              @default(0)
+  reviewCount    Int                @default(0)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  user           User               @relation(fields: [userId], references: [id])
+  categories     ProviderCategory[]
+  coverageAreas  CoverageArea[]
+  photos         ProviderPhoto[]
+  quoteThreads   QuoteThread[]
+  reviews        Review[]
+}
+
+model Category {
+  id          String             @id @default(cuid())
+  name        String
+  slug        String             @unique
+  description String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  providers   ProviderCategory[]
+  quotes      QuoteRequest[]
+}
+
+model ProviderCategory {
+  id         String           @id @default(cuid())
+  providerId String
+  categoryId String
+  provider   ProviderProfile @relation(fields: [providerId], references: [id])
+  category   Category        @relation(fields: [categoryId], references: [id])
+
+  @@unique([providerId, categoryId])
+}
+
+model CoverageArea {
+  id         String           @id @default(cuid())
+  providerId String
+  county     String
+  town       String?
+  provider   ProviderProfile @relation(fields: [providerId], references: [id])
+}
+
+model ProviderPhoto {
+  id         String           @id @default(cuid())
+  providerId String
+  url        String
+  provider   ProviderProfile @relation(fields: [providerId], references: [id])
+}
+
+model QuoteRequest {
+  id                 String        @id @default(cuid())
+  customerId         String
+  categoryId         String
+  locationCounty     String
+  locationTown       String?
+  description        String
+  status             QuoteStatus   @default(OPEN)
+  requestedProviderId String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  customer           User          @relation("CustomerQuotes", fields: [customerId], references: [id])
+  category           Category      @relation(fields: [categoryId], references: [id])
+  threads            QuoteThread[]
+  photos             QuotePhoto[]
+  review             Review?
+}
+
+model QuotePhoto {
+  id             String       @id @default(cuid())
+  quoteRequestId String
+  url            String
+  quoteRequest   QuoteRequest @relation(fields: [quoteRequestId], references: [id])
+}
+
+model QuoteThread {
+  id            String       @id @default(cuid())
+  quoteRequestId String
+  providerId    String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  quoteRequest  QuoteRequest @relation(fields: [quoteRequestId], references: [id])
+  provider      ProviderProfile @relation(fields: [providerId], references: [id])
+  messages      Message[]
+}
+
+model Message {
+  id        String      @id @default(cuid())
+  threadId  String
+  senderId  String
+  body      String
+  createdAt DateTime    @default(now())
+  thread    QuoteThread @relation(fields: [threadId], references: [id])
+  sender    User        @relation(fields: [senderId], references: [id])
+}
+
+model Review {
+  id             String         @id @default(cuid())
+  providerId     String
+  customerId     String
+  quoteRequestId String         @unique
+  rating         Int
+  comment        String
+  createdAt      DateTime       @default(now())
+  provider       ProviderProfile @relation(fields: [providerId], references: [id])
+  customer       User           @relation(fields: [customerId], references: [id])
+  quoteRequest   QuoteRequest   @relation(fields: [quoteRequestId], references: [id])
+}
